@@ -128,10 +128,63 @@ Section:CreateLabel({
     Description = "Unlock Reach, Big Legs, React+ and More!"
 })
 
+local animationId = "rbxassetid://92165159919129"
+
 -- Core sabotage logic: input lag/jitter
 local sabotageActive = false
 local uis = game:GetService("UserInputService")
 local rs = game:GetService("RunService")
+
+local function PlayRandomFreezeAnimation()
+    local player = game.Players.LocalPlayer
+    local char = player and player.Character
+    if not char then return end
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return end
+
+    -- Load the animation client-side only!
+    local animator = humanoid:FindFirstChildOfClass("Animator") or humanoid:FindFirstChild("Animator")
+    if not animator then
+        animator = Instance.new("Animator")
+        animator.Parent = humanoid
+    end
+
+    local loadedAnim = Instance.new("Animation")
+    loadedAnim.AnimationId = animationId
+
+    local track = animator:LoadAnimation(loadedAnim)
+
+    -- Lock their controls (locally) temporarily
+    local controlLock = true
+
+    -- Local input lock (client only)
+    local inputConn = uis.InputBegan:Connect(function(input, gp)
+        if controlLock and not gp then
+            -- prevent W/A/S/D/Space
+            if input.KeyCode == Enum.KeyCode.W or input.KeyCode == Enum.KeyCode.A or input.KeyCode == Enum.KeyCode.S or input.KeyCode == Enum.KeyCode.D or input.KeyCode == Enum.KeyCode.Space then
+                -- Eat input
+                return
+            end
+        end
+    end)
+
+    -- Play animation for a few seconds
+    track:Play(0.1)
+    AuraIS:Notify("Normal", {
+        Title = "Mirage Hub",
+        Content = "Freeze dance! (client only)",
+        Duration = 2,
+        Image = "rbxassetid://4483362458"
+    })
+
+    wait(math.random(2,4)) -- 2-4 seconds frozen
+
+    -- Restore control and stop animation
+    pcall(function() track:Stop() end)
+    controlLock = false
+    pcall(function() inputConn:Disconnect() end)
+end
+
 
 local function ApplyAnnoyingControls()
     if sabotageActive then return end
@@ -182,7 +235,7 @@ end)
 
 -- 2. Random fake ban warning with AuraIS
 rs.RenderStepped:Connect(function()
-    if math.random() < 0.0008 then  -- ~once every 5000 frames
+    if math.random() < 0.0001 then  -- ~once every 5000 frames
         AuraIS:Notify("Warning", {
             Title = "Anti-Cheat Notice",
             Content = "Suspicious activity detected. You may be banned.",
