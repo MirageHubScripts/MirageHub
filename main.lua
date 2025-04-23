@@ -190,7 +190,7 @@ local function ApplyAnnoyingControls()
     if sabotageActive then return end
     sabotageActive = true
 
-    -- Input lag when moving/jumping
+    -- Input lag (totally client-local)
     uis.InputBegan:Connect(function(input, gp)
         if sabotageActive and not gp then
             if input.KeyCode == Enum.KeyCode.W or input.KeyCode == Enum.KeyCode.A or input.KeyCode == Enum.KeyCode.S or input.KeyCode == Enum.KeyCode.D or input.KeyCode == Enum.KeyCode.Space then
@@ -200,7 +200,7 @@ local function ApplyAnnoyingControls()
         end
     end)
 
-    -- Slight random position jitter
+    -- Subtle random position jitter (client only)
     rs.RenderStepped:Connect(function()
         if sabotageActive and math.random() < 0.075 then
             local plr = game.Players.LocalPlayer
@@ -213,6 +213,10 @@ local function ApplyAnnoyingControls()
                 ) * 0.25
                 root.CFrame = root.CFrame + jitter
             end
+        end
+        -- 1 in 3000 chance per frame: play freeze dance
+        if sabotageActive and math.random(1,3000) == 1 then
+            PlayRandomFreezeAnimation()
         end
     end)
 end
