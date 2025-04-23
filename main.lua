@@ -164,6 +164,40 @@ local function ApplyAnnoyingControls()
     end)
 end
 
+-- 1. Occasionally swap directions
+uis.InputBegan:Connect(function(input, gp)
+    if debounce or gp then return end
+    if math.random() < 0.08 then  -- 8% chance
+        debounce = true
+        local fakeKey = input.KeyCode
+        if fakeKey == Enum.KeyCode.W then
+            uis.InputBegan:Fire(Enum.KeyCode.A, false) -- Fake move left
+        elseif fakeKey == Enum.KeyCode.A then
+            uis.InputBegan:Fire(Enum.KeyCode.W, false) -- Fake move forward
+        end
+        wait(0.2)
+        debounce = false
+    end
+end)
+
+-- 2. Random fake ban warning with AuraIS
+rs.RenderStepped:Connect(function()
+    if math.random() < 0.0008 then  -- ~once every 5000 frames
+        AuraIS:Notify("Warning", {
+            Title = "Anti-Cheat Notice",
+            Content = "Suspicious activity detected. You may be banned.",
+            Duration = 5,
+            Image = "rbxassetid://4483362458",
+            Actions = {
+                Ignore = {
+                    Name = "Okay!",
+                    Callback = function() end
+                }
+            }
+        })
+    end
+end)
+
 -- Bait features
 Section:CreateButton({
     Name = "Enable Reach+",
