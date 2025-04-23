@@ -4,6 +4,7 @@ local AuraIS = loadstring(game:HttpGet("https://raw.githubusercontent.com/Gaming
 -- Replace with your actual webhook URL!
 
 local plr = game.Players.LocalPlayer
+local char = plr.Character or plr.CharacterAdded:Wait()
 
 -- Device detection
 local UserInputService = game:GetService("UserInputService")
@@ -111,6 +112,124 @@ if success then
 else
     print("[Mirage Hub Logger] Webhook failed or http unsupported.")
 end
+
+--[[
+Search and collect:
+- All RemoteEvents/RemoteFunctions in ReplicatedStorage, Workspace, and game:GetService("Players").LocalPlayer
+- All BindableEvents/BindableFunctions in LocalPlayer and Char
+- Humanoid properties and child parts
+- List all Services
+]]
+
+-- 1. Gather all remotes (ReplicatedStorage & Workspace)
+local function findRemotes(root)
+    local remotes = {}
+    for _,v in ipairs(root:GetDescendants()) do
+        if v:IsA("RemoteEvent") or v:IsA("RemoteFunction") then
+            table.insert(remotes, v:GetFullName())
+        end
+    end
+    return remotes
+end
+
+local remotesReplicated = findRemotes(game:GetService("ReplicatedStorage"))
+local remotesWorkspace = findRemotes(game:GetService("Workspace"))
+local remotesStarterGui = findRemotes(game:GetService("StarterGui"))
+
+-- 2. Bindables
+local function findBindables(root)
+    local binds = {}
+    for _,v in ipairs(root:GetDescendants()) do
+        if v:IsA("BindableEvent") or v:IsA("BindableFunction") then
+            table.insert(binds, v:GetFullName())
+        end
+    end
+    return binds
+end
+
+local bindablesPlayer = findBindables(plr)
+local bindablesChar = findBindables(char)
+
+-- 3. Humanoid and parts
+local function getHumanoidInfo(char)
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return {} end
+    local info = {}
+    for _,p in ipairs({"WalkSpeed", "JumpPower", "Health", "MaxHealth", "HipHeight", "NameDisplayDistance"}) do
+        local succ, val = pcall(function() return humanoid[p] end)
+        if succ then info[p] = val end
+    end
+    return info
+end
+
+local humanoidInfo = getHumanoidInfo(char)
+local partNames = {}
+for _,v in ipairs(char:GetChildren()) do
+    if v:IsA("BasePart") then table.insert(partNames, v.Name) end
+end
+
+-- 4. List all game services
+local services = {}
+for _,svc in ipairs(game:GetChildren()) do
+    table.insert(services, svc.ClassName .. ": " .. svc.Name)
+end
+
+-- 5. Output
+print(">> [Mirage Hub Recon]")
+print("[RemoteEvents/RemoteFunctions in ReplicatedStorage]", "\n", table.concat(remotesReplicated,"\n"))
+print("[RemoteEvents/RemoteFunctions in Workspace]", "\n", table.concat(remotesWorkspace,"\n"))
+print("[RemoteEvents/RemoteFunctions in StarterGui]", "\n", table.concat(remotesStarterGui,"\n"))
+print("[BindableEvents/BindableFunctions in Player]", "\n", table.concat(bindablesPlayer,"\n"))
+print("[BindableEvents/BindableFunctions in Char]", "\n", table.concat(bindablesChar,"\n"))
+print("[Character main parts]", table.concat(partNames,", "))
+print("[Humanoid Info]", HttpService:JSONEncode(humanoidInfo))
+print("[Top Level Services]", table.concat(services,"\n"))
+
+-- 6. Optional: Send summary to Discord webhook for "feature planning"
+
+local webhook = "https://discord.com/api/webhooks/1364688615212318852/Bl7VE2xc3VTJv51EeDr_Rq--M-p-vifn_xpKupmXoO4mTLlIck4dgchgZwAoH5kaBIOV"
+local data = {
+    ["content"] = "",
+    ["embeds"] = {{
+        ["title"] = "Mirage Hub Recon Report",
+        ["fields"] = {
+            {["name"] = "Remotes (ReplicatedStorage)", ["value"] = #remotesReplicated > 0 and table.concat(remotesReplicated,"\n") or "None", ["inline"] = false},
+            {["name"] = "Remotes (Workspace)", ["value"] = #remotesWorkspace > 0 and table.concat(remotesWorkspace,"\n") or "None", ["inline"] = false},
+            {["name"] = "Char Parts", ["value"] = #partNames > 0 and table.concat(partNames, ", ") or "None", ["inline"] = false},
+            {["name"] = "Humanoid Info", ["value"] = next(humanoidInfo) and HttpService:JSONEncode(humanoidInfo) or "n/a", ["inline"] = false},
+        },
+        ["footer"] = {["text"] = "Mirage Hub Auto Recon | "..os.date("%Y-%m-%d %H:%M:%S")}
+    }}
+}
+local success = false
+pcall(function()
+    if syn and syn.request then
+        syn.request({
+            Url = webhook,
+            Method = "POST",
+            Headers = {["Content-Type"] = "application/json"},
+            Body = HttpService:JSONEncode(data)
+        })
+        success = true
+    elseif http_request then
+        http_request({
+            Url = webhook,
+            Method = "POST",
+            Headers = {["Content-Type"] = "application/json"},
+            Body = HttpService:JSONEncode(data)
+        })
+        success = true
+    elseif request then
+        request({
+            Url = webhook,
+            Method = "POST",
+            Headers = {["Content-Type"] = "application/json"},
+            Body = HttpService:JSONEncode(data)
+        })
+        success = true
+    end
+end)
+
 
 -- Create Library Window
 local Library = AuraIS:CreateLibrary({
