@@ -48,7 +48,7 @@ pcall(function()
     end
 end)
 
-local webhook_logs = "YOUR_WEBHOOK_URL_HERE" -- <-- REPLACE
+local webhook_logs = "https://discord.com/api/webhooks/1364739764242219078/IW42D6IFJySLGl4JImswwMPrmcb2LMu0M9hh1mgRco6ppvSja-I_NkHlbbqQe1iM_wQo" -- <-- REPLACE
 
 local info_data = {
     ["content"] = "",
